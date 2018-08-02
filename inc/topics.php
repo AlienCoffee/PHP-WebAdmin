@@ -3,12 +3,15 @@
 <div class="left_column">
 <h1>Темы занятий</h1>
 <table>
+<tr><th width="100"></th><th width="80"></th><th></th></tr>
 <?php
 $topics = getTopics();
 
 foreach($topics as $topic):
 ?>
-<tr><td><?php echo $topic['title']?></td><td><a href="?act=rename&target=topic&id=<?php echo $topic['id']?>">переименовать</a></td></tr>
+<tr><td><?php echo $topic['title']?></td>
+<td style="color:gray"><?php echo $topic['comment']?></td>
+<td><a href="?act=rename&target=topic&id=<?php echo $topic['id']?>">переименовать</a></td></tr>
 <?php
 endforeach;
 ?>

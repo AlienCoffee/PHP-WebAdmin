@@ -5,6 +5,7 @@
 <h1>Группы</h1>
 
 <table>
+<tr><th width="100"></th><th width="80"></th><th></th></tr>
 <?php
 $groups = getGroups();
 
@@ -12,6 +13,7 @@ foreach($groups as $group):
 ?>
 <tr>
 	<td><a href="?act=students&gid=<?php echo $group['id']?>"><?php echo $group['title']?></a></td>
+	<td><?php echo $group['comment']?></td>
 	<td><a href="?act=rename&target=group&id=<?php echo $group['id']?>">переименовать</a></td>
 </tr>
 <?php
