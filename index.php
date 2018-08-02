@@ -102,6 +102,8 @@ function sendMessageServer($msg)
 
 		if (isset($obj['list']) && is_array($obj['list'])) 
 			return $obj['list'];
+		if (isset($obj['kind']) && $obj['kind']=='ID')
+			return $obj['code'];// Для создания
 	}catch(string $e){
 		echo $e;			
 	}		
@@ -279,8 +281,15 @@ function editStudent($src, $prefix)
 function addStudent($src, $prefix)
 {
 	if (isset($src['student_hidden']) && $prefix =='prefix:student'){
-		$command = 'create student -name.first '.$src['student_name'];// добавить ид учителя
-		sendMessageServer($command);				
+		$command = 'create student -name.first '.$src['student_name'].' -name.last '.$src['student_last'];// добавить ид учителя
+		
+		$insert_id = sendMessageServer($command);				
+		if (intval($insert_id)>0 && intval($src['student_group'])>0){
+			$id = intval($insert_id);
+			$to = intval($src['student_group']);
+			$command = "insert student -student $id -group $to";
+			sendMessageServer($command);				
+		}
 	}			
 }
 // Перемещение студента в другую группу
