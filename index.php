@@ -254,9 +254,11 @@ function addGroup($name, $comment)
 }
 function addTopic($title, $comment)
 {
-	$command = 'create topic '.$title;
-		
-	sendMessageServer($msg);
+	$command = 'create topic -title '.$title;
+	if (strlen($comment)>0){
+		$command.=' -comment '.$comment;
+	}
+	sendMessageServer($command);
 }
 // Редактирование студента
 function editStudent($src, $prefix)
