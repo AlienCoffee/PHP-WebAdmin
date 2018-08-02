@@ -1,0 +1,75 @@
+body{
+	background-color: #0ffefe;
+}
+#login_panel_name{
+	padding-top: 30px;
+	font-size: 1.5em;
+	text-align: center;
+	padding-bottom: 20px;
+}
+#login_box{
+	padding: 20px;
+	margin: 0 auto;	
+	width: 200px;
+	border: 1px solid black;
+}
+.login_error{
+	text-align: center;
+	padding: 10px;
+	margin: 10px auto;
+	color: red;
+	width: 400px;
+	border: 1px solid red;
+}
+.label1{
+	padding-top: 5px;
+	padding-bottom: 3px;
+	
+}
+.center1{
+	text-align:center;
+}
+ul.buttons{
+	list-style: none;
+	padding-left: 0px;
+	
+}
+ul.buttons li{
+	display: inline-block;
+}
+ul.buttons li a{
+	display: inline-block;
+	width:120px;	
+	border: 1px solid black;
+	padding-top: 65px;
+	padding-bottom: 20px;
+	background-image: url(../icons/icons8-university-50.png);
+	background-repeat: no-repeat;
+	background-position: center 10px;
+	text-decoration: none;
+	font-size: 16px;
+	color: black;
+	font-family: "Century Gothic";
+	text-align: center;
+}
+ul.buttons li>a:hover{
+	border: 1px solid #888;
+	color: #888;
+}
+.left_column{
+	float:left;
+}
+.right_column{
+	padding: 20px;
+	padding-top: 10px;
+	margin-top: 20px;
+	margin-left: 55px;
+	float:left;
+	border: 1px solid black;
+}
+.clearfix:after{
+	clear: both;
+	content: ".";
+	height:0px;
+	display:block;
+}
