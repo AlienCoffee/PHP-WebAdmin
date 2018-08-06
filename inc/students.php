@@ -49,7 +49,7 @@ endif;
 <?php
 $action_add="?act=add&target=student";
 if (isset($_GET['gid'])){
-	$action_add.="?&gid=$gid";
+	$action_add.="&gid=$gid";
 }
 ?>
 <form action="<?php echo $action_add?>" method="post">
