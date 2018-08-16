@@ -7,7 +7,7 @@
 if (isset($_GET['gid'])):
 
 	$gid = intval($_GET['gid']);
-	$group = getGroupById($gid);
+	$group = getGroupById($gid); // если группа неправильная - написать проверку
 	$students = getStudentsByGroupId($gid);
 ?>
 

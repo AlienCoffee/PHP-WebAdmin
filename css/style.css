@@ -73,3 +73,10 @@ ul.buttons li>a:hover{
 	height:0px;
 	display:block;
 }
+.server_status{
+	color: green;
+}
+.server_status .disconnected{
+	color: red;
+	
+}

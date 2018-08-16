@@ -7,57 +7,98 @@ $user = "visitor";
 $db = "db.pluses";
 $dbpass = "wru4";
 // основные функции
+// функции сокращения
+function quote($str)
+{
+	global $mysqli_link;	
+	return "'".mysqli_real_escape_string($mysqli_link, $str)."'";	
+}
+function filterString($str)
+{
+	return htmlspecialchars($str, ENT_COMPAT, 'UTF-8');	
+}
+function dbQuery($query)
+{
+	global $mysqli_link;
+	return mysqli_query($mysqli_link, $query);	
+}
+function dbFetch($res)
+{
+	return mysqli_fetch_assoc($res);	
+}
+function dbFetchAll($res)
+{
+	$data = array();
+	
+	while($row = mysqli_fetch_assoc($res)){
+		$data[] = $row;
+	}
 
-// функции авторизации	
+	return $data;
+	//return  mysqli_fetch_all($res, MYSQLI_ASSOC);// Новый способ
+}
+function dbSelect($select)
+{
+	$res = dbQuery($select);
+	return dbFetchAll($res);
+}
+function dbSelectRow($select)
+{
+	$res = dbQuery($select);
+	return dbFetch($res);
+}
+// конец функций сокращений
+
+// функции авторизации
 function isLogin()
 {
-	return isset($_SESSION['_user_login']) && $_SESSION['_user_login']==1;		
+	return isset($_SESSION['_user_login']);
+	// Админы могут быть разные
+	//&& $_SESSION['_user_login']==1;
 }
-function MakeLogin()
-{	
+function makeLogin()
+{
 	global $mysqli_link;
-	
-	$select = "SELECT id, hpass FROM teachers WHERE phone = '".
-	mysqli_real_escape_string($mysqli_link, $_POST['login_user'])."'";
+
+	$select = "SELECT id, hpass FROM teachers WHERE phone = ".quote($_POST['login_user']);
+
+	$row = dbSelectRow($select);
 		
-	$res = mysqli_query($mysqli_link, $select);
-	$row = mysqli_fetch_assoc($res);
 	if (isset($row['id'])) {
 		$hpass = explode(':', $row['hpass']);
 		if (md5($_POST['password_user'].$hpass[1])==$hpass[0])
-			return intval($row['id']);				
+			return intval($row['id']);
 	}
 	return false;
 }
 function getScriptName()
 {
-	
-	if (strstr($_SERVER['SCRIPT_NAME'],"index.php")){		
+	if (strstr($_SERVER['SCRIPT_NAME'],"index.php")){
 		return "./";
-	} 
+	}
 	return $_SERVER['SCRIPT_NAME'];
 }
 function Login()
 {
-	if ($id = MakeLogin()){
-		// проверка пароля бла бла бла
-		$_SESSION['_user_login'] = $id;
-			
-		header("Location: ".getScriptName());
-	}else{
-		// облом с сообщением
-		$_SESSION['flash_message'] = 'error_login';
-		header("Location: ".getScriptName());
-	}		
+	if (!isLogin() && isset($_POST['login_hidden'])){
+		if ($id = makeLogin()){
+			// проверка пароля бла бла бла
+			$_SESSION['_user_login'] = $id;
+
+			header("Location: ".getScriptName());
+		}else{
+			unset($_SESSION['_user_login']);
+			// облом с сообщением
+			$_SESSION['flash_message'] = 'error_login';
+			header("Location: ".getScriptName());
+		}
+	}	
+	else header("Location: ".getScriptName());
 }
 function Logout()
 {
 	unset($_SESSION['_user_login']);
 	header("Location: ".getScriptName());
-}
-function isLogout()
-{
-	return isset($_GET['act']) && $_GET['act']=='logout';
 }
 // конец авторизации
 // начало функций ядра
@@ -73,7 +114,7 @@ function lengthMsg($msg)
 	return $out.$msg;
 }
 function sendMessageServer($msg)
-{		
+{
 	$address = 'shemplo.ru'; // //Адрес работы сервера
 	$port = 2000; //Порт работы сервера (лучше какой-нибудь редкоиспользуемый)
 	$msg = '{content:"'.$msg.'"}';	// обернуть сообщение
@@ -81,116 +122,101 @@ function sendMessageServer($msg)
 		return false;
 	}
 	
-	$result = socket_connect($socket, $address, $port);
+	$result = @socket_connect($socket, $address, $port);
 	if ($result === false) {
 		return false;
-	} 
-	$msg = lengthMsg($msg);		
+	}
+	$msg = lengthMsg($msg);
 	socket_write($socket, $msg, strlen($msg));
-			
+
 	$out = socket_read($socket,4); //Читаем сообщение от сервера
 	$len = (ord($out[0])<<24)+(ord($out[1])<<16)+(ord($out[2])<<8)+ord($out[3]);
-	
-	$out_m = socket_read($socket, $len);	
-	
+
+	$out_m = socket_read($socket, $len);
+
 	//Останавливаем работу с сокетом
 	if (isset($socket)) {
-		socket_close($socket);			
-	}	
+		socket_close($socket);
+	}
+	if (isset($_GET['act']) && $_GET['act']=='test')print_r($out_m);
 	try{
 		$obj = json_decode($out_m, true);
 
-		if (isset($obj['list']) && is_array($obj['list'])) 
+		if (isset($obj['list']) && is_array($obj['list']))
 			return $obj['list'];
 		if (isset($obj['kind']) && $obj['kind']=='ID')
 			return $obj['code'];// Для создания
+		if (isset($obj['kind']) && $obj['kind']=='INFO')
+			return $obj['code']; // 0 - если Pong
 	}catch(string $e){
-		echo $e;			
-	}		
+		echo $e;
+	}
 	return false;
 }
-
+// Группы
 function getGroups()
 {
-	global $mysqli_link;
-	
-	$_groups = array();
-	
-	$select = "SELECT id, title, comment FROM groups";	// временно
-			
-	$res = mysqli_query($mysqli_link, $select);
-	while($row = mysqli_fetch_assoc($res)){
-		$_groups[] = $row;			
-	}
-		
-	return $_groups;
-		
+	return dbSelect("SELECT id, title, comment FROM groups");
 }
 function getGroupById($id)
-{	
-	global $mysqli_link;	
-	
-	$select = "SELECT id, title, comment FROM groups WHERE id = ".intval($id);	// временно
-			
-	$res = mysqli_query($mysqli_link, $select);
-	$row = mysqli_fetch_assoc($res);
-	if ($row){
-		return $row;
-	}
-		
-	return false;
-}
-function renameGroupById($id, $new_group_name)
 {
-	global $mysqli_link;
+	$id = intval($id);
 	
-	$select = "UPDATE groups SET title = '". 
-		mysqli_real_escape_string($mysqli_link, $new_group_name).
-		"' WHERE id = ".intval($id);	// временно
-	mysqli_query($mysqli_link, $select);		
+	return dbSelectRow("SELECT id, title, comment FROM groups WHERE id = $id");
 }
+function renameGroupById($id, $title)
+{
+	$id = intval($id);
+	$title = filterString($title);
+		
+	$select = "UPDATE groups SET title = ".quote($title)." WHERE id = $id";	// временно
+	dbQuery($select);
+}
+// Темы
 function getTopics()
 {
-	global $mysqli_link;
-	$_topics = array();
-		
-	$select = "SELECT id, title, comment FROM topics";	// временно
-			
-	$res = mysqli_query($mysqli_link, $select);
-	while($row = mysqli_fetch_assoc($res)){
-		$_topics[] = $row;			
-	}
-		
-	return $_topics;
+	return dbSelect("SELECT id, title, comment FROM topics");	
 }
 function getTopicById($id)
-{		
-	global $mysqli_link;
-	$select = "SELECT id, title, comment FROM topics WHERE id = ".intval($id);	// временно
-			
-	$res = mysqli_query($mysqli_link, $select);
-	$row = mysqli_fetch_assoc($res);
-	if ($row){						
-		return $row;
-	}
-		
-	return false;
-}
-function renameTopicById($id, $new_topic_title, $new_topic_comment)
 {
-	global $mysqli_link;
-	$select = "UPDATE topics SET title = '". 
-		mysqli_real_escape_string($mysqli_link, $new_topic_title).
-		"', comment='". 
-		mysqli_real_escape_string($mysqli_link, $new_topic_comment).
-		"' WHERE id = ".intval($id);	// временно
-	mysqli_query($mysqli_link, $select);	
+	$id = intval($id);
+		
+	return dbSelectRow("SELECT id, title, comment FROM topics WHERE id = $id");
 }
+function getTopicsByGroupId($id)
+{
+	// выбрать студентов определенной группы
+	$command = "select topics -id ".intval($id);
+	$topics_ids = sendMessageServer($command);
+	// получить содержимое id
+	$arr_id = array();
+	if ($topics_ids){
+		foreach($topics_ids as $topic_pair){
+			if ($topic_pair['pair'][1]==0)
+				$arr_id[] = $topic_pair['pair'][0];
+		}
+	}
+	if (count($arr_id) > 0){
+		
+		return dbSelect("SELECT id, title, comment FROM topics WHERE id IN(".implode(",",$arr_id).")");
+	}
+	return array();
+}
+function renameTopicById($id, $title, $comment)
+{
+	$id = intval($id);
+	$title = filterString($title);
+	$comment = filterString($comment);
+	
+	$update = "UPDATE topics SET title = ".quote($title).", comment=". quote($comment).
+		" WHERE id = $id";	// временно
+	dbQuery($update);
+}
+// Студенты
 function getStudentsByGroupId($id)
 {
-	global $mysqli_link;
 	// выбрать студентов определенной группы
-	$command = "select students -id $id";
+	$command = "select students -id ".intval($id);
 	$student_ids = sendMessageServer($command);
 	// получить содержимое id
 	$arr_id = array();
@@ -201,97 +227,139 @@ function getStudentsByGroupId($id)
 		}
 	}
 	if (count($arr_id) > 0){
-		// Для базы плюсов			
+		// Для базы плюсов
 		$select = "SELECT id, `name.first` as name_first, `name.last` as name_last FROM students WHERE id IN(".implode(",",$arr_id).")";
-		
-		$res = mysqli_query($mysqli_link, $select);
-			
-		while ($row = mysqli_fetch_assoc($res)){	
-			$students[] = $row;
-		}
-		return $students;
+
+		return dbSelect($select);
 	}
 	return array();
 }
 function getStudents()
-{		
-	global $mysqli_link;
-	
-	$students = array();
-		
+{
 	// Запрос для основной базы
-	$select = "SELECT id, `name.first` as name_first, `name.last` as name_last FROM students";		
-	
-	$res = mysqli_query($mysqli_link, $select);
-		
-	while ($row = mysqli_fetch_assoc($res)){	
-		$students[] = $row;
-	}
-		
-	return $students;
+	$select = "SELECT id, `name.first` as name_first, `name.last` as name_last FROM students";
+
+	return dbSelect($select);
 }
 function getStudentById($id)
 {
-	global $mysqli_link;
+	$id = intval($id);
 	
-	$select = "SELECT id, `name.first` as name_first, `name.last` as name_last FROM students WHERE id=".intval($id);
-	$res = mysqli_query($mysqli_link, $select);
-		
-	if ($row = mysqli_fetch_assoc($res)){
-		return $row;
-	}
-	return false;
+	$select = "SELECT id, `name.first` as name_first, `name.last` as name_last FROM students WHERE id=$id";
+	
+	return dbSelectRow($select);
 }
 function getStudentGroup($id)
 {
 	$command = "select groups -id ".intval($id);
-	return sendMessageServer($command);		
+	return sendMessageServer($command);
 }
+// Задания
+function getTasksByTopicId($id)
+{
+	$command ="select tasks -topic ".intval($id);
+	$result = sendMessageServer($command);
+	if ($result){
+		$arr = array();
+		foreach($result as $task){
+			$arr[]=array('id'=>$task['pair'][0], 'title'=>$task['pair'][1]);			
+		}
+		return $arr;
+	}
+	return array();
+}
+// Администраторы
+function getTeachers()
+{
+	return  dbSelect("SELECT id, first_name, second_name, last_name, rights FROM teachers");// Новый способ
+}
+// Добавление ..
 function addGroup($name, $comment)
 {
+	$name = filterString($name);
+	$comment = filterString($comment);
 	// вызвать добавление группы
 	$command = "create group -title $name -comment $comment -headteacher 1"; // headteacher = 1 из админки
-		
+
 	sendMessageServer($command);
-}
-function addTopic($title, $comment)
-{
-	$command = 'create topic -title '.$title;
-	if (strlen($comment)>0){
-		$command.=' -comment '.$comment;
-	}
-	sendMessageServer($command);
-}
-// Редактирование студента
-function editStudent($src, $prefix)
-{
-	global $mysqli_link;
-	
-	if (isset($src['student_hidden']) && $prefix =='prefix:student'){
-		$update = "UPDATE students SET `name.first`='".
-			mysqli_real_escape_string($mysqli_link, $src['student_name']).
-			"', `name.last`='".
-			mysqli_real_escape_string($mysqli_link, $src['student_last']).
-			"' WHERE id = ".intval($src['student_id']);
-		
-		$res = mysqli_query($mysqli_link, $update);	
-	}		
 }
 // Добавление студента
 function addStudent($src, $prefix)
 {
 	if (isset($src['student_hidden']) && $prefix =='prefix:student'){
-		$command = 'create student -name.first '.$src['student_name'].' -name.last '.$src['student_last'];// добавить ид учителя
 		
-		$insert_id = sendMessageServer($command);				
+		$student_name = filterString($src['student_name']);
+		$student_last = filterString($src['student_last']);
+		
+		$command = 'create student -name.first '.$student_name.' -name.last '.$student_last;// добавить ид учителя
+
+		$insert_id = sendMessageServer($command);
 		if (intval($insert_id)>0 && intval($src['student_group'])>0){
 			$id = intval($insert_id);
 			$to = intval($src['student_group']);
 			$command = "insert student -student $id -group $to";
-			sendMessageServer($command);				
+			sendMessageServer($command);
 		}
-	}			
+	}
 }
+function addTopic($title, $comment, $group = 0)
+{
+	$title = filterString($title);
+	$command = 'create topic -title '.$title;
+	if (strlen($comment)>0){
+		$comment = filterString($comment);
+		$command.=' -comment '.$comment;
+	}
+	$insert_id = sendMessageServer($command);
+	if (intval($group)>0 && intval($insert_id)>0){
+		$command = "insert topic -topic $insert_id -group $group";
+		
+		sendMessageServer($command);
+	}
+}
+function addTask($src, $prefix)
+{
+	if (isset($src['task_hidden']) && $prefix =='prefix:task'){
+		
+		$topic_id = intval($src['topic_id']);
+		$title = filterString($src['task_title']);
+		$command = "create task -title $title -topic $topic_id";
+		$result = sendMessageServer($command);
+		
+		if ($result===0)
+			return 'complete';
+	}
+	return 'error';
+}
+// Редактирование студента
+function editStudent($src, $prefix)
+{
+	if (isset($src['student_hidden']) && $prefix =='prefix:student'){
+		
+		$id = intval($src['student_id']);
+		
+		$name = filterString($src['student_name']);
+		$lastname = filterString($src['student_last']);		
+		
+		$update = "UPDATE students SET `name.first`=".quote($name).
+			", `name.last`=".quote($lastname).
+			" WHERE id = $id";
+
+		dbQuery($update);
+	}
+}
+function editTask($src, $prefix)
+{
+	// вызвать добавление группы
+	$id = intval($src['task_id']);
+	$title = filterString($src['task_title']);
+	$topic_id = intval($src['topic_id']);
+	$command = "update task -title $title -id $id -topic $topic_id"; // headteacher = 1 из админки
+
+	sendMessageServer($command);
+	
+}
+
 // Перемещение студента в другую группу
 function moveStudent($src, $prefix)
 {
@@ -299,58 +367,65 @@ function moveStudent($src, $prefix)
 		// нужна атомарная операция на серваке
 		if (isset($src['student_group']))
 		{
-			$id = $src['student_id'];
-			$from = $src['student_group'];
-			$to = $src['student_group_new'];
+			$id = intval($src['student_id']);
+			$from = intval($src['student_group']);
+			$to = intval($src['student_group_new']);
 			$command = "move student -id $id -from $from -to $to";
 			sendMessageServer($command);
 		} else {
-			$id = $src['student_id'];
-			$to = $src['student_group_new'];
+			$id = intval($src['student_id']);
+			$to = intval($src['student_group_new']);
 			$command = "insert student -student $id -group $to";
 			sendMessageServer($command);
 		}
 		return "complete";
 	}
-	
-	return "normal";		
+
+	return "normal";
 }
 // конец функций ядра
+
 // начало функций главной страницы
 function render()
 {
-	if (!isLogin()){
+	if (isLogin()){
+		global $cur_action;
+		
+		include 'inc/admin.php'; // обработка роута	
+	}else{		
 		include 'inc/login.php';
-	}else{
-		include 'inc/admin.php';
 	}
 }
-function isLoginPost()
-{
-	if (isset($_POST['port']) && $_POST['port']=='login_port') 
-		return true;
-	return false;		
+function isAjax() {
+    return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
 }
 function echoPage()
 {
-	include 'inc/template.php';			
+	// проверка на аякс может быть здесь
+	include 'inc/template.php';
 }
 function echoTopMenu()
 {
-	include 'inc/top_menu.php';		
+	include 'inc/top_menu.php';
+}
+function echoServerStatus()
+{
+	include 'inc/status.php';
 }
 // конец функций главной страницы
 
 // Инициализировать подключение к базе данных
-
 $mysqli_link = mysqli_connect($host, $user, $dbpass, $db);
-/* Запрос на установку кодировки */
-mysqli_query($mysqli_link, "SET NAMES utf8");
+// Запрос на установку кодировки
+dbQuery("SET NAMES utf8");
 
-if (!isLogin() && isLoginPost()){
-	Login();	
-}elseif (isLogout()){
+// Обработка действий админа
+$cur_action = isset($_GET['act'])? $_GET['act']: false;
+// действия до вывода шаблона
+if ($cur_action == 'logout'){
 	Logout();
-}
+}elseif ($cur_action == 'login'){
+	Login();
+}else
 // Вывод страницы в браузер
-echoPage();
+	echoPage(); // с шаблоном
